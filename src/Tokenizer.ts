@@ -200,12 +200,21 @@ export class _Tokenizer<ParserOutput = string, RendererOutput = string> {
         } else if (lastToken?.type === 'blockquote') {
           // include continuation in nested blockquote
           const oldToken = lastToken as Tokens.Blockquote;
-          const newText = oldToken.raw + '\n' + lines.join('\n');
+          // Continuation lines belong to this blockquote, so one level of `>`
+          // is removed before they are added to the nested blockquote. A lazy
+          // continuation line does not change the quote depth, so a line that
+          // restores the depth from before the lazy line continues the same
+          // paragraph instead of starting a deeper blockquote.
+          const continuation = lines
+            .join('\n')
+            .replace(this.rules.other.blockquoteSetextReplace, '\n    $1')
+            .replace(this.rules.other.blockquoteSetextReplace2, '');
+          const newText = oldToken.raw + '\n' + continuation;
           const newToken = this.blockquote(newText)!;
           tokens[tokens.length - 1] = newToken;
 
-          raw = raw.substring(0, raw.length - oldToken.raw.length) + newToken.raw;
-          text = text.substring(0, text.length - oldToken.text.length) + newToken.text;
+          raw = raw ? `${raw}\n${lines.join('\n')}` : lines.join('\n');
+          text = text ? `${text}\n${continuation}` : continuation;
           break;
         } else if (lastToken?.type === 'list') {
           // include continuation in nested list

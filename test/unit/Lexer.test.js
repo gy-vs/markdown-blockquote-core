@@ -640,6 +640,246 @@ a | b
     });
   });
 
+  describe('blockquote lazy continuation', () => {
+    const paragraph = (text) => ({
+      type: 'paragraph',
+      raw: text,
+      text,
+      tokens: [
+        { type: 'text', raw: text, text, escaped: false },
+      ],
+    });
+
+    it('two levels: lazy line does not deepen the quote that follows', () => {
+      expectTokens({
+        md: '> > foo\nbar\n> > baz',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > foo\nbar\n> > baz',
+            text: '> foo\nbar\n> baz',
+            tokens: [
+              {
+                type: 'blockquote',
+                raw: '> foo\nbar\n> baz',
+                text: 'foo\nbar\nbaz',
+                tokens: [paragraph('foo\nbar\nbaz')],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('three levels: lazy line does not deepen the quote that follows', () => {
+      expectTokens({
+        md: '> > > foo\nbar\n> > > baz',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > > foo\nbar\n> > > baz',
+            text: '> > foo\nbar\n> > baz',
+            tokens: [
+              {
+                type: 'blockquote',
+                raw: '> > foo\nbar\n> > baz',
+                text: '> foo\nbar\n> baz',
+                tokens: [
+                  {
+                    type: 'blockquote',
+                    raw: '> foo\nbar\n> baz',
+                    text: 'foo\nbar\nbaz',
+                    tokens: [paragraph('foo\nbar\nbaz')],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('multiple consecutive lazy lines keep the quote depth', () => {
+      expectTokens({
+        md: '> > foo\nbar\nbaz\n> > qux',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > foo\nbar\nbaz\n> > qux',
+            text: '> foo\nbar\nbaz\n> qux',
+            tokens: [
+              {
+                type: 'blockquote',
+                raw: '> foo\nbar\nbaz\n> qux',
+                text: 'foo\nbar\nbaz\nqux',
+                tokens: [paragraph('foo\nbar\nbaz\nqux')],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('blank line interrupts the blockquote', () => {
+      expectTokens({
+        md: '> > foo\nbar\n\n> > baz',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > foo\nbar',
+            text: '> foo\nbar',
+            tokens: [
+              {
+                type: 'blockquote',
+                raw: '> foo\nbar',
+                text: 'foo\nbar',
+                tokens: [paragraph('foo\nbar')],
+              },
+            ],
+          },
+          { type: 'space', raw: '\n\n' },
+          {
+            type: 'blockquote',
+            raw: '> > baz',
+            text: '> baz',
+            tokens: [
+              {
+                type: 'blockquote',
+                raw: '> baz',
+                text: 'baz',
+                tokens: [paragraph('baz')],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('list after a lazy line stays at the same quote depth', () => {
+      expectTokens({
+        md: '> > foo\nbar\n> > - a\n> > - b',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > foo\nbar\n> > - a\n> > - b',
+            text: '> foo\nbar\n> - a\n> - b',
+            tokens: [
+              {
+                type: 'blockquote',
+                raw: '> foo\nbar\n> - a\n> - b',
+                text: 'foo\nbar\n- a\n- b',
+                tokens: [
+                  {
+                    type: 'paragraph',
+                    raw: 'foo\nbar\n',
+                    text: 'foo\nbar',
+                    tokens: [
+                      { type: 'text', raw: 'foo\nbar', text: 'foo\nbar', escaped: false },
+                    ],
+                  },
+                  {
+                    type: 'list',
+                    raw: '- a\n- b',
+                    ordered: false,
+                    start: '',
+                    loose: false,
+                    items: [
+                      {
+                        type: 'list_item',
+                        raw: '- a\n',
+                        task: false,
+                        loose: false,
+                        text: 'a',
+                        tokens: [{
+                          type: 'text',
+                          raw: 'a',
+                          text: 'a',
+                          tokens: [{ type: 'text', raw: 'a', text: 'a', escaped: false }],
+                        }],
+                      },
+                      {
+                        type: 'list_item',
+                        raw: '- b',
+                        task: false,
+                        loose: false,
+                        text: 'b',
+                        tokens: [{
+                          type: 'text',
+                          raw: 'b',
+                          text: 'b',
+                          tokens: [{ type: 'text', raw: 'b', text: 'b', escaped: false }],
+                        }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('fenced code after a lazy line stays at the same quote depth', () => {
+      expectTokens({
+        md: '> > foo\nbar\n> > ```\n> > code\n> > ```',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > foo\nbar\n> > ```\n> > code\n> > ```',
+            text: '> foo\nbar\n> ```\n> code\n> ```',
+            tokens: [
+              {
+                type: 'blockquote',
+                raw: '> foo\nbar\n> ```\n> code\n> ```',
+                text: 'foo\nbar\n```\ncode\n```',
+                tokens: [
+                  {
+                    type: 'paragraph',
+                    raw: 'foo\nbar\n',
+                    text: 'foo\nbar',
+                    tokens: [
+                      { type: 'text', raw: 'foo\nbar', text: 'foo\nbar', escaped: false },
+                    ],
+                  },
+                  {
+                    type: 'code',
+                    raw: '```\ncode\n```',
+                    lang: '',
+                    text: 'code',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('raw consumes exactly the blockquote source', () => {
+      expectTokens({
+        md: '> > foo\nbar\n> > baz\n\nafter',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > foo\nbar\n> > baz',
+            text: '> foo\nbar\n> baz',
+            tokens: [
+              {
+                type: 'blockquote',
+                raw: '> foo\nbar\n> baz',
+                text: 'foo\nbar\nbaz',
+                tokens: [paragraph('foo\nbar\nbaz')],
+              },
+            ],
+          },
+          { type: 'space', raw: '\n\n' },
+          paragraph('after'),
+        ],
+      });
+    });
+  });
+
   describe('list', () => {
     it('unordered', () => {
       expectTokens({

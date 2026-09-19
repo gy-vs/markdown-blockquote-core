@@ -86,6 +86,35 @@ describe('marked unit', () => {
       assert.strictEqual(html, '<p>Not Underlined</p>\n<u>Underlined</u>\n<p>Not Underlined</p>\n');
     });
 
+    it('should resume custom block tokenizer after blockquote lazy continuation', () => {
+      const seen = [];
+      const underline = {
+        name: 'underline',
+        level: 'block',
+        tokenizer(src) {
+          seen.push(src);
+          const rule = /^:([^\n]*)(?:\n|$)/;
+          const match = rule.exec(src);
+          if (match) {
+            return {
+              type: 'underline',
+              raw: match[0],
+              text: match[1].trim(),
+            };
+          }
+        },
+        renderer(token) {
+          return `<u>${token.text}</u>\n`;
+        },
+      };
+      marked.use({ extensions: [underline] });
+      // the blockquote must consume exactly its own source so the extension
+      // tokenizer sees the remaining src at the right offset
+      const html = marked.parse('> > foo\nbar\n> > baz\n\n:Underlined');
+      assert.strictEqual(html, '<blockquote>\n<blockquote>\n<p>foo\nbar\nbaz</p>\n</blockquote>\n</blockquote>\n<u>Underlined</u>\n');
+      assert.ok(seen.some(src => src.startsWith(':Underlined')));
+    });
+
     it('should interrupt paragraphs if using "start" property', () => {
       const underline = {
         extensions: [{
