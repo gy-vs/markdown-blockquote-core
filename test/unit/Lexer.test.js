@@ -638,6 +638,254 @@ a | b
         ],
       });
     });
+
+    it('lazy continuation keeps depth at two levels', () => {
+      // the middle line has no '>' prefix; the following line returns to the
+      // same depth and must stay in the same nested blockquote paragraph
+      expectTokens({
+        md: '> > a\nlazy\n> > c\n',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > a\nlazy\n> > c\n',
+            text: '> a\nlazy\n> c',
+            tokens: [{
+              type: 'blockquote',
+              raw: '> a\nlazy\n> c',
+              text: 'a\nlazy\nc',
+              tokens: [{
+                type: 'paragraph',
+                raw: 'a\nlazy\nc',
+                text: 'a\nlazy\nc',
+                tokens: [
+                  { type: 'text', raw: 'a\nlazy\nc', text: 'a\nlazy\nc', escaped: false },
+                ],
+              }],
+            }],
+          },
+        ],
+      });
+    });
+
+    it('lazy continuation keeps depth at three levels', () => {
+      expectTokens({
+        md: '> > > a\nlazy\n> > > c\n',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > > a\nlazy\n> > > c\n',
+            text: '> > a\nlazy\n> > c',
+            tokens: [{
+              type: 'blockquote',
+              raw: '> > a\nlazy\n> > c',
+              text: '> a\nlazy\n> c',
+              tokens: [{
+                type: 'blockquote',
+                raw: '> a\nlazy\n> c',
+                text: 'a\nlazy\nc',
+                tokens: [{
+                  type: 'paragraph',
+                  raw: 'a\nlazy\nc',
+                  text: 'a\nlazy\nc',
+                  tokens: [
+                    { type: 'text', raw: 'a\nlazy\nc', text: 'a\nlazy\nc', escaped: false },
+                  ],
+                }],
+              }],
+            }],
+          },
+        ],
+      });
+    });
+
+    it('several consecutive lazy continuation lines', () => {
+      expectTokens({
+        md: '> > a\nlazy one\nlazy two\n> > b\n',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > a\nlazy one\nlazy two\n> > b\n',
+            text: '> a\nlazy one\nlazy two\n> b',
+            tokens: [{
+              type: 'blockquote',
+              raw: '> a\nlazy one\nlazy two\n> b',
+              text: 'a\nlazy one\nlazy two\nb',
+              tokens: [{
+                type: 'paragraph',
+                raw: 'a\nlazy one\nlazy two\nb',
+                text: 'a\nlazy one\nlazy two\nb',
+                tokens: [
+                  {
+                    type: 'text',
+                    raw: 'a\nlazy one\nlazy two\nb',
+                    text: 'a\nlazy one\nlazy two\nb',
+                    escaped: false,
+                  },
+                ],
+              }],
+            }],
+          },
+        ],
+      });
+    });
+
+    it('lazy continuation with a single marker stays in nested blockquote', () => {
+      expectTokens({
+        md: '> > a\n> lazy\n> > c\n',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > a\n> lazy\n> > c\n',
+            text: '> a\nlazy\n> c',
+            tokens: [{
+              type: 'blockquote',
+              raw: '> a\nlazy\n> c',
+              text: 'a\nlazy\nc',
+              tokens: [{
+                type: 'paragraph',
+                raw: 'a\nlazy\nc',
+                text: 'a\nlazy\nc',
+                tokens: [
+                  { type: 'text', raw: 'a\nlazy\nc', text: 'a\nlazy\nc', escaped: false },
+                ],
+              }],
+            }],
+          },
+        ],
+      });
+    });
+
+    it('blank line ends the paragraph after lazy continuation', () => {
+      expectTokens({
+        md: '> > a\nlazy\n\n> > b\n',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > a\nlazy',
+            text: '> a\nlazy',
+            tokens: [{
+              type: 'blockquote',
+              raw: '> a\nlazy',
+              text: 'a\nlazy',
+              tokens: [{
+                type: 'paragraph',
+                raw: 'a\nlazy',
+                text: 'a\nlazy',
+                tokens: [
+                  { type: 'text', raw: 'a\nlazy', text: 'a\nlazy', escaped: false },
+                ],
+              }],
+            }],
+          },
+          { type: 'space', raw: '\n\n' },
+          {
+            type: 'blockquote',
+            raw: '> > b\n',
+            text: '> b',
+            tokens: [{
+              type: 'blockquote',
+              raw: '> b',
+              text: 'b',
+              tokens: [{
+                type: 'paragraph',
+                raw: 'b',
+                text: 'b',
+                tokens: [
+                  { type: 'text', raw: 'b', text: 'b', escaped: false },
+                ],
+              }],
+            }],
+          },
+        ],
+      });
+    });
+
+    it('lazy continuation into list items at two levels', () => {
+      expectTokens({
+        md: '> > - a\nlazy\n> > - b\n',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > - a\nlazy\n> > - b\n',
+            text: '> - a\nlazy\n> - b',
+            tokens: [{
+              type: 'blockquote',
+              raw: '> - a\nlazy\n> - b',
+              text: '- a\nlazy\n- b',
+              tokens: [{
+                type: 'list',
+                raw: '- a\nlazy\n- b',
+                ordered: false,
+                start: '',
+                loose: false,
+                items: [
+                  {
+                    type: 'list_item',
+                    raw: '- a\nlazy\n',
+                    task: false,
+                    loose: false,
+                    text: 'a\nlazy',
+                    tokens: [{
+                      type: 'text',
+                      raw: 'a\nlazy',
+                      text: 'a\nlazy',
+                      tokens: [
+                        { type: 'text', raw: 'a\nlazy', text: 'a\nlazy', escaped: false },
+                      ],
+                    }],
+                  },
+                  {
+                    type: 'list_item',
+                    raw: '- b',
+                    task: false,
+                    loose: false,
+                    text: 'b',
+                    tokens: [{
+                      type: 'text',
+                      raw: 'b',
+                      text: 'b',
+                      tokens: [
+                        { type: 'text', raw: 'b', text: 'b', escaped: false },
+                      ],
+                    }],
+                  },
+                ],
+              }],
+            }],
+          },
+        ],
+      });
+    });
+
+    it('fenced code after lazy line stays quoted at two levels', () => {
+      // every fence line keeps its marker; only paragraph text is lazy
+      expectTokens({
+        md: '> > a\n> > ```\n> > code\n> > ```\n',
+        tokens: [
+          {
+            type: 'blockquote',
+            raw: '> > a\n> > ```\n> > code\n> > ```\n',
+            text: '> a\n> ```\n> code\n> ```',
+            tokens: [{
+              type: 'blockquote',
+              raw: '> a\n> ```\n> code\n> ```',
+              text: 'a\n```\ncode\n```',
+              tokens: [
+                {
+                  type: 'paragraph',
+                  raw: 'a\n',
+                  text: 'a',
+                  tokens: [
+                    { type: 'text', raw: 'a', text: 'a', escaped: false },
+                  ],
+                },
+                { type: 'code', raw: '```\ncode\n```', lang: '', text: 'code' },
+              ],
+            }],
+          },
+        ],
+      });
+    });
   });
 
   describe('list', () => {

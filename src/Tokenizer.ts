@@ -198,25 +198,50 @@ export class _Tokenizer<ParserOutput = string, RendererOutput = string> {
           // blockquote continuation cannot be preceded by a code block
           break;
         } else if (lastToken?.type === 'blockquote') {
-          // include continuation in nested blockquote
+          // include continuation in nested blockquote.
+          // a lazy continuation line (without a '>' marker) does not change the
+          // blockquote depth, so the quoted lines following it are still
+          // contained by this blockquote: remove this blockquote's marker from
+          // every quoted continuation line before re-lexing. Otherwise a line at
+          // the same depth is mistaken for a deeper blockquote after a lazy
+          // line. The nested token lexes the normalized text, while raw and text
+          // stay in their original / one-marker-stripped form by appending the
+          // continuation lines actually consumed.
           const oldToken = lastToken as Tokens.Blockquote;
-          const newText = oldToken.raw + '\n' + lines.join('\n');
-          const newToken = this.blockquote(newText)!;
+          const continuationLines = lines;
+          const continuation = continuationLines
+            .join('\n')
+            .replace(this.rules.other.blockquoteSetextReplace2, '');
+          const newToken = this.blockquote(oldToken.raw + '\n' + continuation)!;
+          const consumedLineCount = newToken.raw.split('\n').length
+            - oldToken.raw.split('\n').length;
+          if (consumedLineCount > 0) {
+            raw += `\n${continuationLines.slice(0, consumedLineCount).join('\n')}`;
+            text += `\n${continuation.split('\n').slice(0, consumedLineCount).join('\n')}`;
+          }
           tokens[tokens.length - 1] = newToken;
-
-          raw = raw.substring(0, raw.length - oldToken.raw.length) + newToken.raw;
-          text = text.substring(0, text.length - oldToken.text.length) + newToken.text;
           break;
         } else if (lastToken?.type === 'list') {
-          // include continuation in nested list
+          // include continuation in nested list.
+          // a lazy continuation line (without a '>' marker) does not change the
+          // blockquote depth, so remove this blockquote's marker from every
+          // quoted continuation line before re-lexing; otherwise the list sees
+          // the outer marker as a new blockquote and splits after a lazy line.
           const oldToken = lastToken as Tokens.List;
-          const newText = oldToken.raw + '\n' + lines.join('\n');
+          const continuationLines = lines;
+          const continuation = continuationLines
+            .join('\n')
+            .replace(this.rules.other.blockquoteSetextReplace2, '');
+          const newText = oldToken.raw + '\n' + continuation;
           const newToken = this.list(newText)!;
+          const consumedLineCount = newToken.raw.split('\n').length
+            - oldToken.raw.split('\n').length;
+          if (consumedLineCount > 0) {
+            raw += `\n${continuationLines.slice(0, consumedLineCount).join('\n')}`;
+            text += `\n${continuation.split('\n').slice(0, consumedLineCount).join('\n')}`;
+          }
           tokens[tokens.length - 1] = newToken;
-
-          raw = raw.substring(0, raw.length - lastToken.raw.length) + newToken.raw;
-          text = text.substring(0, text.length - oldToken.raw.length) + newToken.raw;
-          lines = newText.substring(tokens.at(-1)!.raw.length).split('\n');
+          lines = continuationLines.slice(consumedLineCount);
           continue;
         }
       }
